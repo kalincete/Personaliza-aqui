@@ -25,6 +25,7 @@ const emptyCustomer: Customer = {
 
 export default function ProductEditor({ initialProductId }: { initialProductId?: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const isDraggingRef = useRef(false);
   const [isDragging, setIsDragging] = useState(false);
   const [productId, setProductId] = useState(initialProductId || products[0].id);
@@ -196,16 +197,17 @@ export default function ProductEditor({ initialProductId }: { initialProductId?:
   }
 
 
-  function pointerToCanvas(event: React.PointerEvent<HTMLCanvasElement>) {
+  function pointerToCanvas(event: React.PointerEvent<HTMLElement>) {
     const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
+    const stage = stageRef.current;
+    if (!canvas || !stage) return null;
+    const rect = stage.getBoundingClientRect();
     const canvasX = ((event.clientX - rect.left) / rect.width) * canvas.width;
     const canvasY = ((event.clientY - rect.top) / rect.height) * canvas.height;
     return { x: canvasX, y: canvasY };
   }
 
-  function moveDesignToPointer(event: React.PointerEvent<HTMLCanvasElement>) {
+  function moveDesignToPointer(event: React.PointerEvent<HTMLElement>) {
     const point = pointerToCanvas(event);
     if (!point) return;
     const nextX = Math.max(120, Math.min(780, Math.round(point.x)));
@@ -214,20 +216,22 @@ export default function ProductEditor({ initialProductId }: { initialProductId?:
     setY(nextY);
   }
 
-  function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
+  function handlePointerDown(event: React.PointerEvent<HTMLElement>) {
     if (!logoData && !text.trim()) return;
+    event.preventDefault();
     isDraggingRef.current = true;
     setIsDragging(true);
     event.currentTarget.setPointerCapture(event.pointerId);
     moveDesignToPointer(event);
   }
 
-  function handlePointerMove(event: React.PointerEvent<HTMLCanvasElement>) {
+  function handlePointerMove(event: React.PointerEvent<HTMLElement>) {
     if (!isDraggingRef.current) return;
+    event.preventDefault();
     moveDesignToPointer(event);
   }
 
-  function stopDragging(event: React.PointerEvent<HTMLCanvasElement>) {
+  function stopDragging(event: React.PointerEvent<HTMLElement>) {
     isDraggingRef.current = false;
     setIsDragging(false);
     try {
@@ -263,16 +267,25 @@ export default function ProductEditor({ initialProductId }: { initialProductId?:
     <div className="editor-layout">
       <section className="panel">
         <div className="canvas-wrap">
-          <canvas
-            ref={canvasRef}
-            aria-label="Vista previa del producto"
-            className={isDragging ? "dragging" : ""}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={stopDragging}
-            onPointerCancel={stopDragging}
-            onPointerLeave={stopDragging}
-          />
+          <div ref={stageRef} className="preview-stage">
+            <canvas
+              ref={canvasRef}
+              aria-label="Vista previa del producto"
+              className={isDragging ? "dragging" : ""}
+            />
+            <div
+              className={isDragging ? "drag-layer dragging" : "drag-layer"}
+              role="button"
+              aria-label="Arrastra aquí para mover el diseño"
+              tabIndex={0}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={stopDragging}
+              onPointerCancel={stopDragging}
+            >
+              {(logoData || text.trim()) && <span className="drag-hint">Arrastra el diseño</span>}
+            </div>
+          </div>
         </div>
         <div className="actions">
           <button className="btn btn-primary" onClick={downloadMockup}>Descargar vista previa</button>
