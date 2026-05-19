@@ -25,6 +25,8 @@ const emptyCustomer: Customer = {
 
 export default function ProductEditor({ initialProductId }: { initialProductId?: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isDraggingRef = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [productId, setProductId] = useState(initialProductId || products[0].id);
   const [logoData, setLogoData] = useState<string | null>(null);
   const [logoName, setLogoName] = useState<string>("");
@@ -193,6 +195,46 @@ export default function ProductEditor({ initialProductId }: { initialProductId?:
     }
   }
 
+
+  function pointerToCanvas(event: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = ((event.clientX - rect.left) / rect.width) * canvas.width;
+    const canvasY = ((event.clientY - rect.top) / rect.height) * canvas.height;
+    return { x: canvasX, y: canvasY };
+  }
+
+  function moveDesignToPointer(event: React.PointerEvent<HTMLCanvasElement>) {
+    const point = pointerToCanvas(event);
+    if (!point) return;
+    const nextX = Math.max(120, Math.min(780, Math.round(point.x)));
+    const nextY = Math.max(120, Math.min(780, Math.round(point.y)));
+    setX(nextX);
+    setY(nextY);
+  }
+
+  function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (!logoData && !text.trim()) return;
+    isDraggingRef.current = true;
+    setIsDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    moveDesignToPointer(event);
+  }
+
+  function handlePointerMove(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (!isDraggingRef.current) return;
+    moveDesignToPointer(event);
+  }
+
+  function stopDragging(event: React.PointerEvent<HTMLCanvasElement>) {
+    isDraggingRef.current = false;
+    setIsDragging(false);
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {}
+  }
+
   function emailLink() {
     const to = "info@imprentagutenberg.es";
     const subject = `Solicitud de presupuesto - ${product.name}`;
@@ -221,12 +263,22 @@ export default function ProductEditor({ initialProductId }: { initialProductId?:
     <div className="editor-layout">
       <section className="panel">
         <div className="canvas-wrap">
-          <canvas ref={canvasRef} aria-label="Vista previa del producto" />
+          <canvas
+            ref={canvasRef}
+            aria-label="Vista previa del producto"
+            className={isDragging ? "dragging" : ""}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={stopDragging}
+            onPointerCancel={stopDragging}
+            onPointerLeave={stopDragging}
+          />
         </div>
         <div className="actions">
           <button className="btn btn-primary" onClick={downloadMockup}>Descargar vista previa</button>
           <button className="btn btn-secondary" onClick={() => { setLogoData(null); setText(""); }}>Limpiar diseño</button>
         </div>
+        <p className="notice">Puedes mover el diseño arrastrándolo directamente sobre la imagen, tanto con ratón como con el dedo en móvil.</p>
         <p className="notice">La descarga queda bloqueada hasta completar nombre, email, teléfono y cantidad. La imagen es orientativa y lleva marca de agua.</p>
         <p className="notice">Antes de producir revisamos medidas, calidad del archivo, técnica adecuada y precio final.</p>
       </section>
@@ -252,11 +304,11 @@ export default function ProductEditor({ initialProductId }: { initialProductId?:
           <input value={text} onChange={e => setText(e.target.value)} placeholder="Nombre, fecha, evento..." />
         </div>
         <div className="field">
-          <label>Posición horizontal</label>
+          <label>Posición horizontal / ajuste fino</label>
           <div className="range-row"><input type="range" min="120" max="780" value={x} onChange={e => setX(Number(e.target.value))} /><input value={x} readOnly /></div>
         </div>
         <div className="field">
-          <label>Posición vertical</label>
+          <label>Posición vertical / ajuste fino</label>
           <div className="range-row"><input type="range" min="120" max="780" value={y} onChange={e => setY(Number(e.target.value))} /><input value={y} readOnly /></div>
         </div>
         <div className="field">
